@@ -45,7 +45,10 @@ export class SignupPage {
   /** Navigate using the locale URL path (source of truth for language). */
   async goto(): Promise<void> {
     const { signupPath } = LOCALE_CONFIG[this.locale];
-    await this.page.goto(signupPath);
+    // networkidle reduces flaky wipes when React hydrates after early fills.
+    await this.page.goto(signupPath, { waitUntil: 'networkidle' });
+    await this.firstNameInput.waitFor({ state: 'visible' });
+    await this.submitButton.waitFor({ state: 'visible' });
   }
 
   async fillFirstName(value: string): Promise<void> {
@@ -102,5 +105,17 @@ export class SignupPage {
     await this.fillPassword(data.password);
     await this.fillPasswordConfirmation(data.passwordConfirmation);
     await this.setConsent(data.leadDistributeConsentAgreement);
+
+    // Guard against late hydration clearing inputs before submit.
+    if ((await this.firstNameInput.inputValue()) !== data.firstName) {
+      await this.fillFirstName(data.firstName);
+    }
+    if ((await this.emailInput.inputValue()) !== data.email) {
+      await this.fillEmail(data.email);
+    }
+    if ((await this.passwordInput.inputValue()) !== data.password) {
+      await this.fillPassword(data.password);
+      await this.fillPasswordConfirmation(data.passwordConfirmation);
+    }
   }
 }

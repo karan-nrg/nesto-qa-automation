@@ -133,3 +133,24 @@ export async function assertDuplicateAccountError(
   expect(body.account).toBeUndefined();
   return body;
 }
+
+/**
+ * Track whether POST /api/accounts fires. Use for client-side validation
+ * negatives that must never reach the API.
+ */
+export function trackAccountsPosts(page: Page): {
+  wasPosted: () => boolean;
+} {
+  let posted = false;
+  page.on('request', (request) => {
+    if (
+      request.method() === 'POST' &&
+      request.url().includes(ACCOUNTS_PATH)
+    ) {
+      posted = true;
+    }
+  });
+  return {
+    wasPosted: () => posted,
+  };
+}

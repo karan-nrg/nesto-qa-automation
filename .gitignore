@@ -14,6 +14,9 @@ node_modules/
 .env.*
 !.env.example
 
+# Written by EN success signup for duplicate-email reuse (no third create)
+/support/signup/lastCreatedAccount.json
+
 # OS / editor
 .DS_Store
 *.log
