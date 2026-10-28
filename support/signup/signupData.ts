@@ -61,7 +61,8 @@ export function buildValidSignupData(
   const base: SignupData = {
     firstName: 'Auto',
     lastName: 'Tester',
-    email: `nesto.qa+${stamp}.w${workerIndex}@example.com`,
+    // example.com is rejected by the API ("placeholder email detected").
+    email: `nesto.qa+${stamp}.w${workerIndex}@mailinator.com`,
     phoneNational,
     phoneE164: `+1${phoneNational}`,
     region: 'BC',
