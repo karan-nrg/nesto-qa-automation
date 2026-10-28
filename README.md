@@ -2,18 +2,19 @@
 
 Playwright + TypeScript suite for the nesto QA signup flow (`https://app.qa.nesto.ca`).
 
-## Live account budget (HARD CAP)
+## Test Isolation, Data Lifecycle & Assumptions
 
-**Exactly 2 QA accounts** may be created by the whole suite:
+1. **Independence:** Every test runs independently with fresh browser state and no cross-test dependencies.
+2. **Data generation:** Account identities are unique per execution attempt, including retries. Unique data is created **inside each test attempt** (e.g. `buildValidSignupData()` at the start of the test body), not at module initialization or shared suite setup.
+3. **Cleanup:** No destructive teardown is implemented because the assessment does not provide a supported account-deletion contract.
+4. **Repeatability:** Tests remain rerunnable without requiring database resets or existing accounts.
+5. **API expectations:** Phone normalization (such as E.164) and language mapping are based on observed behaviour and verified before assertions are finalized.
+6. **Reporting:** Traces and screenshots are enabled as agreed but treated as sensitive, gitignored artifacts.
+7. **Known limitations:** Synthetic accounts persist in QA; test-data cleanup would be a future collaboration with the application team.
 
-1. One **English** success signup
-2. One **French** success signup
+Live tests create synthetic QA accounts (no create cap). Client-side validation negatives must not call `POST /api/accounts`. The duplicate-email case is self-contained per locale: create once, then resubmit the same email in a fresh browser context.
 
-- Duplicate-email coverage **reuses** one of those emails (prefer EN) — create-then-retry / shared setup.
-- Client-side validation negatives **must not** call `POST /api/accounts`.
-- Do **not** add smoke tests that register accounts.
-
-See [ASSUMPTIONS.md](./ASSUMPTIONS.md) and `support/signup/accountBudget.ts`.
+See [ASSUMPTIONS.md](./ASSUMPTIONS.md) for browser, locale, and API assumptions.
 
 ## Setup
 
@@ -51,7 +52,7 @@ Firefox / WebKit can be added later via Playwright projects — not required for
 ```
 pages/signup/          Page object (data-testid primary)
 tests/signup/          Specs (Agent 2)
-support/signup/        Data, copy, API helpers, account budget
+support/signup/        Data, copy, API helpers
 fixtures/test.ts       Typed fixtures (locale + SignupPage)
 config/locales.ts      EN/FR URL + project mapping
 ```
@@ -59,7 +60,7 @@ config/locales.ts      EN/FR URL + project mapping
 ## CI
 
 - **PR / push:** `npm ci` + `format:check` + `lint` + `typecheck` (no live signup).
-- **Live E2E:** `workflow_dispatch` only — installs Chromium and runs both projects under the 2-account cap. Traces may contain secrets; do not publish them publicly.
+- **Live E2E:** `workflow_dispatch` only — installs Chromium and runs both projects. Tests create synthetic QA accounts (no cap). Traces may contain secrets; do not publish them publicly.
 
 ## Docs
 

@@ -4,13 +4,8 @@ import { SignupPage } from '../pages/signup/SignupPage';
 
 /**
  * Typed fixtures for the signup suite.
- *
- * ACCOUNT CAP (see ASSUMPTIONS.md):
- * - Only two live account creates are allowed for the whole suite:
- *   one EN success + one FR success.
- * - Duplicate-email coverage MUST reuse one of those emails (prefer EN)
- *   via create-then-retry / shared setup — never a third independent create.
- * - Client-side validation negatives MUST NOT trigger POST /api/accounts.
+ * Fixtures are per-test; do not generate shared signup identities here.
+ * Client-side validation negatives MUST NOT trigger POST /api/accounts.
  */
 type SignupFixtures = {
   appLocale: AppLocale;

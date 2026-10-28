@@ -1,16 +1,13 @@
 import { test, expect } from '../../fixtures/test';
-import { claimAccountCreateSlot } from '../../support/signup/accountBudget';
 import {
   assertAccountCreated,
   waitForAccountCreate,
 } from '../../support/signup/accountResponse';
-import { saveLastCreatedAccount } from '../../support/signup/lastCreatedAccount';
 import { buildValidSignupData } from '../../support/signup/signupData';
 
 /**
- * Happy-path signup — the only live 201 creates in the suite.
- * Shared across chromium-en + chromium-fr = exactly 2 accounts (see ASSUMPTIONS.md).
- * EN success also writes lastCreatedAccount.json for the duplicate-email test.
+ * Happy-path signup — creates a live QA account per locale project run.
+ * Identity is built inside each test attempt (retries get a new email).
  */
 test.describe('signup success', () => {
   test('creates an account via POST /api/accounts (201)', async ({
@@ -18,9 +15,6 @@ test.describe('signup success', () => {
     signupPage,
     page,
   }, testInfo) => {
-    const slot = appLocale === 'en' ? 'en-success' : 'fr-success';
-    claimAccountCreateSlot(slot);
-
     const data = buildValidSignupData(
       appLocale,
       {},
@@ -39,15 +33,6 @@ test.describe('signup success', () => {
 
       const response = await responsePromise;
       await assertAccountCreated(response, data);
-
-      // Persist EN email for duplicate coverage (0 extra creates).
-      if (appLocale === 'en') {
-        saveLastCreatedAccount({
-          email: data.email,
-          locale: 'en',
-          createdAt: new Date().toISOString(),
-        });
-      }
     });
 
     await test.step('soft post-nav toward getaquote when stable', async () => {

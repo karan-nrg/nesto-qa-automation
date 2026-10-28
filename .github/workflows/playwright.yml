@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       run_e2e:
-        description: 'Run live EN+FR E2E (creates up to 2 QA accounts)'
+        description: 'Run sign up flow both English and French'
         type: boolean
         default: true
 
@@ -27,7 +27,7 @@ jobs:
       - run: npm run typecheck
 
   e2e:
-    name: Live E2E (chromium-en + chromium-fr)
+    name: Live E2E (english and french)
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     needs: static
@@ -41,14 +41,11 @@ jobs:
       - name: Install Chromium only
         run: npx playwright install --with-deps chromium
       - name: Run EN + FR projects
-        # ACCOUNT CAP: suite may create at most 2 accounts (EN success + FR success).
-        # Duplicate coverage reuses one of those emails. See ASSUMPTIONS.md.
         run: npx playwright test --project=chromium-en --project=chromium-fr
-      - name: Upload report (may contain secrets — keep private)
+      - name: Upload report
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report/
           retention-days: 3
-        # Do not publish traces publicly; artifact retention is short and private to the repo.

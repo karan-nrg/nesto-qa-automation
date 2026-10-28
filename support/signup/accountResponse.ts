@@ -33,11 +33,8 @@ export interface CreateAccountResponseBody {
  * request body. Call this BEFORE triggering submit so the request is not missed.
  * Returns the response even when status is not 201.
  *
- * ACCOUNT CAP: a 201 from this waiter consumes one of the two allowed live
- * creates (EN success or FR success). Duplicate coverage should wait on a
- * retry with a reused email (expect 400), not a third 201. Client validation
- * negatives should never arm this waiter — those must not POST /api/accounts.
- * See accountBudget.ts and ASSUMPTIONS.md.
+ * Client validation negatives should never arm this waiter — those must not
+ * POST /api/accounts.
  */
 export function waitForAccountCreate(
   page: Page,

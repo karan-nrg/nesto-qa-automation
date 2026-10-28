@@ -1,17 +1,19 @@
 import { test, expect } from '../../fixtures/test';
+import { BASE_URL, LOCALE_CONFIG } from '../../config/locales';
+import { SignupPage } from '../../pages/signup/SignupPage';
 import {
+  assertAccountCreated,
   assertDuplicateAccountError,
   trackAccountsPosts,
   waitForAccountCreate,
 } from '../../support/signup/accountResponse';
-import { readLastCreatedAccount } from '../../support/signup/lastCreatedAccount';
 import { buildValidSignupData } from '../../support/signup/signupData';
 import { signupCopyFor } from '../../support/signup/signupCopy';
 
 /**
  * Client-side negatives must NOT POST /api/accounts.
- * Duplicate email is EN-only and reuses the EN success email from
- * lastCreatedAccount.json (0 new creates) — see ASSUMPTIONS.md / BUGS.md.
+ * Duplicate email is self-contained per attempt: create (201) → fresh context →
+ * resubmit same email (observed 400). Runs independently under EN and FR.
  */
 test.describe('signup validation', () => {
   test('empty required fields show errors and do not POST', async ({
@@ -204,46 +206,66 @@ test.describe('signup validation', () => {
   });
 
   /**
-   * EN-only. Reuses email written by chromium-en success in signup.spec.ts.
-   * Does POST (expect observed 400) but must NOT create a new account (no 201).
+   * Self-contained: unique identity → 201 create → fresh browser context →
+   * same email again → observed 400 + generic UI error.
+   * Runs under both EN and FR projects independently (each creates one account).
    * "bad format" is a likely product defect — see BUGS.md; do not invent 409.
    */
   test('duplicate email returns observed 400 and generic UI error', async ({
     appLocale,
+    browser,
     signupPage,
     page,
   }, testInfo) => {
-    test.skip(
-      appLocale !== 'en',
-      'Duplicate coverage is EN-only so FR does not burn another create slot',
-    );
-
-    const stored = readLastCreatedAccount();
-    test.skip(
-      !stored?.email,
-      'Run chromium-en signup success first to write support/signup/lastCreatedAccount.json',
-    );
-
     const copy = signupCopyFor(appLocale);
+    // Built inside the test body so retries receive a new identity.
     const data = buildValidSignupData(
       appLocale,
-      { email: stored!.email },
+      {},
       { workerIndex: testInfo.workerIndex },
     );
 
-    await test.step('open signup and resubmit known EN email', async () => {
+    await test.step('create account with unique identity (201)', async () => {
       await signupPage.goto();
       const responsePromise = waitForAccountCreate(page, data.email);
       await signupPage.fillValidSignup(data);
       await signupPage.submit();
       const response = await responsePromise;
-
-      // Observed contract: 400 + misleading "bad format" (not 409).
-      await assertDuplicateAccountError(response);
+      await assertAccountCreated(response, data);
     });
 
-    await test.step('generic UI error shown', async () => {
-      await expect(page.getByText(copy.errors.genericError)).toBeVisible();
+    await test.step('fresh context: resubmit same email, expect observed 400', async () => {
+      const freshContext = await browser.newContext({
+        baseURL: BASE_URL,
+        locale: LOCALE_CONFIG[appLocale].browserLocale,
+      });
+
+      try {
+        const freshPage = await freshContext.newPage();
+        const freshSignup = new SignupPage(freshPage, appLocale);
+        const duplicateData = buildValidSignupData(
+          appLocale,
+          { email: data.email },
+          { workerIndex: testInfo.workerIndex },
+        );
+
+        await freshSignup.goto();
+        const responsePromise = waitForAccountCreate(
+          freshPage,
+          duplicateData.email,
+        );
+        await freshSignup.fillValidSignup(duplicateData);
+        await freshSignup.submit();
+        const response = await responsePromise;
+
+        // Observed contract: 400 + misleading "bad format" (not 409).
+        await assertDuplicateAccountError(response);
+        await expect(
+          freshPage.getByText(copy.errors.genericError),
+        ).toBeVisible();
+      } finally {
+        await freshContext.close();
+      }
     });
   });
 });

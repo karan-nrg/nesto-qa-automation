@@ -7,9 +7,6 @@ import type { RegionCode, SignupData } from '../../support/signup/signupData';
  * No business assertions here (Agent 2 owns expectations in specs).
  *
  * Prefer data-testid: label/id wiring on this form is broken (duplicate field-1 ids).
- *
- * ACCOUNT CAP: fillValidSignup + submit create real QA accounts.
- * Live creates are limited to EN + FR happy paths only (2 total). See ASSUMPTIONS.md.
  */
 export class SignupPage {
   readonly page: Page;
@@ -92,9 +89,8 @@ export class SignupPage {
 
   /**
    * Fill a complete valid signup form. Does NOT submit.
-   * Submitting this data creates a real QA account — only EN + FR happy paths
-   * may do so (2 creates total for the suite). Duplicate coverage must reuse
-   * one of those emails; validation negatives must not POST /api/accounts.
+   * Submitting valid data creates a real QA account — call only from tests that
+   * intentionally exercise the create (or create-then-duplicate) contract.
    */
   async fillValidSignup(data: SignupData): Promise<void> {
     await this.fillFirstName(data.firstName);

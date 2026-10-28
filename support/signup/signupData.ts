@@ -44,10 +44,9 @@ const VALID_PASSWORD = 'NestoQaPass12!';
  * Unique throwaway identity for signup.
  * Email embeds timestamp + Playwright worker index so parallel runs do not collide.
  *
- * ACCOUNT CAP: building data does not create an account, but submitting it does.
- * Only two live creates are allowed suite-wide (EN success + FR success).
- * Duplicate tests must reuse one of those emails; validation negatives must not POST.
- * See support/signup/accountBudget.ts and ASSUMPTIONS.md.
+ * Call inside each test attempt (or a per-test fixture) — never as a module-level
+ * shared const — so Playwright retries get a fresh identity. Building data does
+ * not create an account; submitting a valid form does.
  */
 export function buildValidSignupData(
   locale: AppLocale,
