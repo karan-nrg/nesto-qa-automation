@@ -14,7 +14,9 @@ test.describe('signup fields', () => {
 
     await test.step('open signup for locale', async () => {
       await signupPage.goto();
-      await expect(page).toHaveURL(new RegExp(signupPage.locale === 'fr' ? '/fr/signup' : '/signup'));
+      await expect(page).toHaveURL(
+        new RegExp(signupPage.locale === 'fr' ? '/fr/signup' : '/signup'),
+      );
     });
 
     await test.step('page title matches locale', async () => {

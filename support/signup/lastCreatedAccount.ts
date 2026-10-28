@@ -15,9 +15,7 @@ export interface LastCreatedAccount {
 
 const STORE_PATH = path.join(__dirname, 'lastCreatedAccount.json');
 
-export function saveLastCreatedAccount(
-  record: LastCreatedAccount,
-): void {
+export function saveLastCreatedAccount(record: LastCreatedAccount): void {
   fs.writeFileSync(STORE_PATH, JSON.stringify(record, null, 2), 'utf8');
 }
 

@@ -36,9 +36,10 @@ test.describe('signup validation', () => {
         'true',
       );
       await expect(page.getByText(copy.errors.required).first()).toBeVisible();
-      expect(posts.wasPosted(), 'empty submit must not POST /api/accounts').toBe(
-        false,
-      );
+      expect(
+        posts.wasPosted(),
+        'empty submit must not POST /api/accounts',
+      ).toBe(false);
     });
   });
 

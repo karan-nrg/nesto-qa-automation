@@ -143,10 +143,7 @@ export function trackAccountsPosts(page: Page): {
 } {
   let posted = false;
   page.on('request', (request) => {
-    if (
-      request.method() === 'POST' &&
-      request.url().includes(ACCOUNTS_PATH)
-    ) {
+    if (request.method() === 'POST' && request.url().includes(ACCOUNTS_PATH)) {
       posted = true;
     }
   });

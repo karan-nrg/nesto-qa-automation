@@ -52,9 +52,7 @@ test.describe('signup success', () => {
 
     await test.step('soft post-nav toward getaquote when stable', async () => {
       // Soft: product may change post-signup routing; do not fail the create contract.
-      await expect
-        .soft(page)
-        .toHaveURL(/getaquote/i, { timeout: 15_000 });
+      await expect.soft(page).toHaveURL(/getaquote/i, { timeout: 15_000 });
     });
   });
 });
