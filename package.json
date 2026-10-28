@@ -1,0 +1,36 @@
+{
+  "name": "nesto-qa-automation",
+  "version": "1.0.0",
+  "description": "Playwright TypeScript automation for nesto QA signup",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:en": "playwright test --project=chromium-en",
+    "test:fr": "playwright test --project=chromium-fr",
+    "test:ui": "playwright test --ui",
+    "test:report": "playwright show-report",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run format:check && npm run lint && npm run typecheck"
+  },
+  "keywords": [
+    "playwright",
+    "nesto",
+    "qa",
+    "signup"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^26.6.6",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.2"
+  }
+}
