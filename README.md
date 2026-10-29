@@ -5,6 +5,8 @@ Playwright + TypeScript automation suite for the [nesto QA signup page](https://
 **Prepared by:** Karan Narang  
 **Date:** October 28, 2026
 
+**[View Playwright Test Report](https://karan-nrg.github.io/nesto-qa-automation/)** — latest successful CI run.
+
 ## Test Coverage
 
 | Area              | Coverage                                                                                                     |
