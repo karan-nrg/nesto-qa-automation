@@ -25,4 +25,4 @@
 ## Execution
 
 - The CI workflow is triggered manually to avoid creating unnecessary QA accounts. An optional `test_file` input can run a single spec instead of the full suite.
-- Playwright traces may contain credentials or authentication tokens. They are excluded from Git. On CI failures, `test-results/` and `playwright-report/` are uploaded as artifacts with short retention for debugging.
+- Playwright traces may contain credentials or authentication tokens. They are excluded from Git. On CI failures, `test-results/` and `playwright-report/` are uploaded as artifacts with short retention for debugging. On a successful E2E run, only the HTML report (no traces or screenshots) is published to GitHub Pages as the latest result.

@@ -83,6 +83,10 @@ yarn test:report
 
 Screenshots are captured on failure, and traces are recorded on the first retry. These files are excluded from Git because they may contain submitted credentials or authentication tokens.
 
+After a successful manual E2E run, the HTML report (pass/fail summary only — no `test-results/` or traces) is published to GitHub Pages:
+
+**https://karan-nrg.github.io/nesto-qa-automation/**
+
 ## CI
 
 The GitHub Actions workflow separates code-quality checks from live signup tests:
@@ -92,7 +96,7 @@ The GitHub Actions workflow separates code-quality checks from live signup tests
   - `test_file` — e.g. `tests/signup/fields.spec.ts` (empty = full suite)
   - `project` — `both`, `chromium-en`, or `chromium-fr`
 
-Live E2E tests are triggered manually to avoid creating unnecessary accounts. On failure, Playwright `test-results/` and `playwright-report/` are uploaded as artifacts (7-day retention) for debugging; they may contain credentials or tokens.
+Live E2E tests are triggered manually to avoid creating unnecessary accounts. On success, the HTML report is deployed to GitHub Pages. On failure, `test-results/` and `playwright-report/` are uploaded as artifacts (7-day retention) for debugging; they may contain credentials or tokens.
 
 ## Project Structure
 

@@ -23,6 +23,11 @@ on:
           - chromium-fr
         default: both
 
+# One Pages deploy at a time; do not cancel an in-flight publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
   static:
     name: Static checks
@@ -69,6 +74,13 @@ jobs:
           else
             yarn playwright test "${PROJECT_ARGS[@]}"
           fi
+      # Green runs: HTML report only (no test-results / traces) for GitHub Pages.
+      - name: Upload Pages artifact
+        if: success()
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: playwright-report
+      # Failures: keep traces/screenshots as a short-lived downloadable artifact.
       - name: Upload Playwright artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -79,3 +91,20 @@ jobs:
             playwright-report/
           retention-days: 7
           if-no-files-found: ignore
+
+  # Publishes the latest green HTML report to GitHub Pages.
+  # Enable Pages in the repo: Settings → Pages → Source: GitHub Actions.
+  deploy-report:
+    name: Deploy HTML report to Pages
+    if: success()
+    needs: e2e
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
