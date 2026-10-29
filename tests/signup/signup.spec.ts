@@ -73,20 +73,39 @@ test.describe('Signup success', () => {
       leadDistributeConsentAgreement: true,
     });
 
-    await signupPage.goto();
-    await signupPage.fillSignupForm(data);
+    await test.step('Create account and verify consent is persisted', async () => {
+      await signupPage.goto();
+      await signupPage.fillSignupForm(data);
 
-    const responsePromise = waitForAccountCreationResponse(page, data.email);
-    await signupPage.submit();
+      const responsePromise = waitForAccountCreationResponse(page, data.email);
+      await signupPage.submit();
 
-    const response = await responsePromise;
-    expect(response.status()).toBe(201);
+      const response = await responsePromise;
+      expect(response.status()).toBe(201);
 
-    const body = (await response.json()) as CreateAccountResponseBody;
-    expect(body.account).toMatchObject({
-      email: data.email,
-      preferredLanguage: appLocale,
-      leadDistributeConsentAgreement: true,
+      const body = (await response.json()) as CreateAccountResponseBody;
+      expect(body.account).toMatchObject({
+        email: data.email,
+        preferredLanguage: appLocale,
+        leadDistributeConsentAgreement: true,
+      });
+    });
+
+    await test.step('Verify the mortgage options page', async () => {
+      const getAQuotePage = new GetAQuotePage(page);
+      const { getAQuotePath } = LOCALE_CONFIG[appLocale];
+
+      // Auth redirect (authorize → callback → getaquote) can exceed the default expect timeout.
+      await expect(page).toHaveURL(`${BASE_URL}${getAQuotePath}`, {
+        timeout: 15_000,
+      });
+      await expect(getAQuotePage.heading).toHaveText(
+        GET_A_QUOTE_HEADING[appLocale],
+      );
+      await expect(getAQuotePage.myPortfolioButton).toBeVisible();
+      await expect(getAQuotePage.newMortgageOption).toBeVisible();
+      await expect(getAQuotePage.renewalOption).toBeVisible();
+      await expect(getAQuotePage.refinanceOption).toBeVisible();
     });
   });
 });
