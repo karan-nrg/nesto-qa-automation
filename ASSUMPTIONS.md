@@ -24,5 +24,5 @@
 
 ## Execution
 
-- The CI workflow is triggered manually to avoid creating unnecessary QA accounts.
-- Playwright traces may contain credentials or authentication tokens. Generated reports and traces are excluded from Git and aren't uploaded as CI artifacts.
+- The CI workflow is triggered manually to avoid creating unnecessary QA accounts. An optional `test_file` input can run a single spec instead of the full suite.
+- Playwright traces may contain credentials or authentication tokens. They are excluded from Git. On CI failures, `test-results/` and `playwright-report/` are uploaded as artifacts with short retention for debugging.

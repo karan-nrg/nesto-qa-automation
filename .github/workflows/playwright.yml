@@ -10,6 +10,18 @@ on:
         description: 'Run sign up flow both English and French'
         type: boolean
         default: true
+      test_file:
+        description: 'Optional Playwright path (e.g. tests/signup/fields.spec.ts). Leave empty for the full suite.'
+        type: string
+        default: ''
+      project:
+        description: 'Which Playwright project(s) to run'
+        type: choice
+        options:
+          - both
+          - chromium-en
+          - chromium-fr
+        default: both
 
 jobs:
   static:
@@ -28,8 +40,6 @@ jobs:
 
   # Runs only when you click "Run workflow" and leave run_e2e checked.
   # Skipped on push/PR so we don't create QA accounts from every commit.
-  # Reports and traces stay on the runner (they can hold tokens/passwords)
-  # and are never uploaded as artifacts.
   e2e:
     name: Sign Up E2E (english and french)
     if: github.event_name == 'workflow_dispatch' && inputs.run_e2e
@@ -44,5 +54,28 @@ jobs:
       - run: yarn install --frozen-lockfile
       - name: Install Chromium only
         run: yarn playwright install --with-deps chromium
-      - name: Run EN + FR projects
-        run: yarn playwright test --project=chromium-en --project=chromium-fr
+      - name: Run Playwright
+        run: |
+          set -euo pipefail
+          PROJECT_ARGS=()
+          if [ "${{ inputs.project }}" = "both" ]; then
+            PROJECT_ARGS=(--project=chromium-en --project=chromium-fr)
+          else
+            PROJECT_ARGS=(--project=${{ inputs.project }})
+          fi
+
+          if [ -n "${{ inputs.test_file }}" ]; then
+            yarn playwright test "${{ inputs.test_file }}" "${PROJECT_ARGS[@]}"
+          else
+            yarn playwright test "${PROJECT_ARGS[@]}"
+          fi
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-output
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore

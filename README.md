@@ -88,9 +88,11 @@ Screenshots are captured on failure, and traces are recorded on the first retry.
 The GitHub Actions workflow separates code-quality checks from live signup tests:
 
 - **Push / pull request:** Run formatting, linting, and TypeScript checks without creating QA accounts.
-- **Manual execution:** Run the English and French E2E suites through `workflow_dispatch`.
+- **Manual execution (`workflow_dispatch`):** Run E2E with optional inputs:
+  - `test_file` — e.g. `tests/signup/fields.spec.ts` (empty = full suite)
+  - `project` — `both`, `chromium-en`, or `chromium-fr`
 
-Live E2E tests are triggered manually to avoid creating unnecessary accounts. Reports and traces are not uploaded as CI artifacts.
+Live E2E tests are triggered manually to avoid creating unnecessary accounts. On failure, Playwright `test-results/` and `playwright-report/` are uploaded as artifacts (7-day retention) for debugging; they may contain credentials or tokens.
 
 ## Project Structure
 
