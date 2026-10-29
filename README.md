@@ -1,68 +1,115 @@
-# nesto QA Automation — Signup
+# Nesto QA Automation Exercise - Signup
 
-Playwright + TypeScript suite for the nesto QA signup flow (`https://app.qa.nesto.ca`).
+Playwright + TypeScript automation suite for the [nesto QA signup page](https://app.qa.nesto.ca/signup).
 
-## Test Isolation, Data Lifecycle & Assumptions
+**Prepared by:** Karan Narang  
+**Date:** October 28, 2026
 
-1. **Independence:** Every test runs independently with fresh browser state and no cross-test dependencies.
-2. **Data generation:** Account identities are unique per execution attempt, including retries. Unique data is created **inside each test attempt** (e.g. `buildValidSignupData()` at the start of the test body), not at module initialization or shared suite setup.
-3. **Cleanup:** No destructive teardown is implemented because the assessment does not provide a supported account-deletion contract.
-4. **Repeatability:** Tests remain rerunnable without requiring database resets or existing accounts.
-5. **API expectations:** Phone normalization (such as E.164) and language mapping are based on observed behaviour and verified before assertions are finalized.
-6. **Reporting:** Traces and screenshots are enabled as agreed but treated as sensitive, gitignored artifacts.
-7. **Known limitations:** Synthetic accounts persist in QA; test-data cleanup would be a future collaboration with the application team.
+## Test Coverage
 
-Live tests create synthetic QA accounts (no create cap). Client-side validation negatives must not call `POST /api/accounts`. The duplicate-email case is self-contained per locale: create once, then resubmit the same email in a fresh browser context.
+| Area              | Coverage                                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| Positive signup   | Successful registration, API `201`, submitted account details, and post-signup navigation                    |
+| Consent           | Successful signup with partner consent both enabled and disabled                                             |
+| Negative signup   | Required fields, invalid email and phone, password validation, password mismatch, and duplicate registration |
+| Fields and labels | Field visibility, English/French labels, accessible names, consent checkbox, and submit button               |
+| Localization      | The same tests run in English and French using separate Playwright projects                                  |
 
-See [ASSUMPTIONS.md](./ASSUMPTIONS.md) for browser, locale, and API assumptions.
+The tests are organized into three spec files:
+
+- `tests/signup/signup.spec.ts` — Successful signup scenarios
+- `tests/signup/validation.spec.ts` — Negative signup scenarios
+- `tests/signup/fields.spec.ts` — Field, label, and accessibility-related checks
 
 ## Setup
 
+**Prerequisites:** Node.js and Yarn.
+
+Install dependencies and the Chromium browser:
+
 ```bash
-npm ci
-npx playwright install chromium
+yarn install --frozen-lockfile
+yarn playwright install chromium
 ```
 
-## Scripts
+## Running the Tests
 
-| Script                 | Purpose                                           |
-| ---------------------- | ------------------------------------------------- |
-| `npm test`             | Run both projects (`chromium-en` + `chromium-fr`) |
-| `npm run test:en`      | English project only                              |
-| `npm run test:fr`      | French project only                               |
-| `npm run test:ui`      | Playwright UI mode                                |
-| `npm run test:report`  | Open last HTML report                             |
-| `npm run lint`         | ESLint                                            |
-| `npm run format`       | Prettier write                                    |
-| `npm run format:check` | Prettier check                                    |
-| `npm run typecheck`    | `tsc --noEmit`                                    |
-| `npm run check`        | format:check + lint + typecheck                   |
+```bash
+# Run the full suite in English and French
+yarn test
 
-## Projects
+# Run one language
+yarn test:en
+yarn test:fr
 
-Language is selected by **application URL** (not Accept-Language alone):
+# Open Playwright UI mode
+yarn test:ui
 
-- `chromium-en` → `https://app.qa.nesto.ca/signup`
-- `chromium-fr` → `https://app.qa.nesto.ca/fr/signup`
+# Open the HTML report
+yarn test:report
 
-Firefox / WebKit can be added later via Playwright projects — not required for this assessment.
-
-## Layout
-
+# Run formatting, linting, and TypeScript checks
+yarn check
 ```
-pages/signup/          Page object (data-testid primary)
-tests/signup/          Specs (Agent 2)
-support/signup/        Data, copy, API helpers
-fixtures/test.ts       Typed fixtures (locale + SignupPage)
-config/locales.ts      EN/FR URL + project mapping
+
+## Language Configuration
+
+The application URL determines the language:
+
+- `chromium-en` → `/signup`
+- `chromium-fr` → `/fr/signup`
+
+Both projects execute the same specs. The custom `appLocale` fixture provides the expected language to the tests.
+
+Chromium was selected to keep the assessment focused. Additional browser coverage is listed under future improvements.
+
+## Test Data and Isolation
+
+Each test uses an isolated browser session. Registration attempts generate unique synthetic email addresses, allowing tests to run independently and in parallel.
+
+The duplicate-email test creates an account as part of its setup, then attempts registration again using a fresh browser context.
+
+Test accounts remain in the QA environment because a supported cleanup API wasn't provided.
+
+See [ASSUMPTIONS.md](./ASSUMPTIONS.md) for the testing decisions and trade-offs.
+
+## Reports and Debugging
+
+Playwright generates an HTML report in `playwright-report/`. Open it using:
+
+```bash
+yarn test:report
 ```
+
+Screenshots are captured on failure, and traces are recorded on the first retry. These files are excluded from Git because they may contain submitted credentials or authentication tokens.
 
 ## CI
 
-- **PR / push:** `npm ci` + `format:check` + `lint` + `typecheck` (no live signup).
-- **Live E2E:** `workflow_dispatch` only — installs Chromium and runs both projects. Tests create synthetic QA accounts (no cap). Traces may contain secrets; do not publish them publicly.
+The GitHub Actions workflow separates code-quality checks from live signup tests:
 
-## Docs
+- **Push / pull request:** Run formatting, linting, and TypeScript checks without creating QA accounts.
+- **Manual execution:** Run the English and French E2E suites through `workflow_dispatch`.
 
-- [ASSUMPTIONS.md](./ASSUMPTIONS.md) — required assessment assumptions
-- [BUGS.md](./BUGS.md) — observed likely defects
+Live E2E tests are triggered manually to avoid creating unnecessary accounts. Reports and traces are not uploaded as CI artifacts.
+
+## Project Structure
+
+```
+config/           Language and project configuration
+fixtures/         Playwright fixtures
+pages/            Signup and post-signup Page Objects
+support/signup/   Test data, localized text, and API helpers
+tests/signup/     Playwright test specs
+```
+
+## What I'd Add With More Time
+
+- Extend browser coverage to Firefox and WebKit.
+- Add component-level tests for field validation, accessibility, and localization, including boundary cases.
+- Introduce automated accessibility checks using axe-core, along with keyboard navigation testing.
+- Add dedicated API tests for account creation and error responses, and use APIs for test data setup and cleanup where supported.
+
+## Documentation
+
+- [ASSUMPTIONS.md](./ASSUMPTIONS.md) — Assumptions and testing trade-offs
+- [BUGS.md](./BUGS.md) — Issues observed during testing

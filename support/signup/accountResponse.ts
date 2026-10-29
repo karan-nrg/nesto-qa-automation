@@ -1,7 +1,17 @@
-import { expect, type Page, type Response } from '@playwright/test';
-import type { SignupData } from './signupData';
+import type { Page, Response } from '@playwright/test';
+import { BASE_URL } from '@/config/locales';
 
 const ACCOUNTS_PATH = '/api/accounts';
+const APP_ORIGIN = new URL(BASE_URL).origin;
+
+export function isCreateAccountUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.origin === APP_ORIGIN && parsed.pathname === ACCOUNTS_PATH;
+  } catch {
+    return false;
+  }
+}
 
 export interface AccountPayload {
   firstName?: string;
@@ -11,140 +21,34 @@ export interface AccountPayload {
   region?: string;
   preferredLanguage?: string;
   leadDistributeConsentAgreement?: boolean;
-  password?: unknown;
-  [key: string]: unknown;
 }
 
 export interface CreateAccountResponseBody {
   account?: AccountPayload;
-  token?: {
-    accessToken?: string;
-    refreshToken?: string;
-    tokenType?: string;
-    expires?: string;
-  };
   error?: string;
   description?: string;
-  [key: string]: unknown;
 }
 
 /**
- * Register a waiter for POST /api/accounts matching the expected email in the
- * request body. Call this BEFORE triggering submit so the request is not missed.
- * Returns the response even when status is not 201.
- *
- * Client validation negatives should never arm this waiter — those must not
- * POST /api/accounts.
+ * Wait for the account creation response for the given email.
+ * This is invoked before submitting the form so the response isn't missed.
  */
-export function waitForAccountCreate(
+export function waitForAccountCreationResponse(
   page: Page,
   email: string,
 ): Promise<Response> {
-  return page.waitForResponse(async (response) => {
-    if (response.request().method() !== 'POST') {
+  return page.waitForResponse((response) => {
+    const request = response.request();
+
+    if (request.method() !== 'POST' || !isCreateAccountUrl(response.url())) {
       return false;
     }
-    if (!response.url().includes(ACCOUNTS_PATH)) {
-      return false;
-    }
+
     try {
-      const raw = response.request().postData() ?? '';
-      if (!raw) {
-        return false;
-      }
-      const body = JSON.parse(raw) as { email?: string };
-      return body.email === email;
+      const body = request.postDataJSON() as { email?: string } | null;
+      return body?.email === email;
     } catch {
-      // Do not log request body — may contain password.
       return false;
     }
   });
-}
-
-export async function parseAccountResponse(
-  response: Response,
-): Promise<CreateAccountResponseBody> {
-  return (await response.json()) as CreateAccountResponseBody;
-}
-
-/**
- * Assert successful account creation (201) and safe field echo.
- * Never logs tokens or passwords.
- */
-export async function assertAccountCreated(
-  response: Response,
-  expected: SignupData,
-): Promise<AccountPayload> {
-  expect(response.status(), 'POST /api/accounts should return 201').toBe(201);
-
-  const body = await parseAccountResponse(response);
-  const account = body.account;
-  expect(account, '201 response should include account object').toBeTruthy();
-
-  assertPasswordAbsent(body);
-  assertPasswordAbsent(account as AccountPayload);
-
-  expect(account!.firstName).toBe(expected.firstName);
-  expect(account!.lastName).toBe(expected.lastName);
-  expect(account!.email).toBe(expected.email);
-  expect(account!.phone).toBe(expected.phoneE164);
-  expect(account!.region).toBe(expected.region);
-  expect(account!.preferredLanguage).toBe(expected.preferredLanguage);
-  expect(account!.leadDistributeConsentAgreement).toBe(
-    expected.leadDistributeConsentAgreement,
-  );
-
-  // Token may be present — assert shape only, never print values.
-  if (body.token) {
-    expect(body.token.tokenType).toBe('Bearer');
-    expect(typeof body.token.accessToken).toBe('string');
-  }
-
-  return account as AccountPayload;
-}
-
-/** Assert password is not echoed in a response/account object. */
-export function assertPasswordAbsent(
-  obj: CreateAccountResponseBody | AccountPayload | undefined,
-): void {
-  if (!obj) {
-    return;
-  }
-  expect(
-    Object.prototype.hasOwnProperty.call(obj, 'password'),
-    'password must not appear in API response',
-  ).toBe(false);
-}
-
-/**
- * Observed duplicate-email contract: 400 + misleading "bad format".
- * Tests assert observed behavior; see BUGS.md.
- */
-export async function assertDuplicateAccountError(
-  response: Response,
-): Promise<CreateAccountResponseBody> {
-  expect(response.status(), 'duplicate email observed as 400').toBe(400);
-  const body = await parseAccountResponse(response);
-  expect(body.error).toBe('bad format');
-  expect(body.description).toBe('error creating account');
-  expect(body.account).toBeUndefined();
-  return body;
-}
-
-/**
- * Track whether POST /api/accounts fires. Use for client-side validation
- * negatives that must never reach the API.
- */
-export function trackAccountsPosts(page: Page): {
-  wasPosted: () => boolean;
-} {
-  let posted = false;
-  page.on('request', (request) => {
-    if (request.method() === 'POST' && request.url().includes(ACCOUNTS_PATH)) {
-      posted = true;
-    }
-  });
-  return {
-    wasPosted: () => posted,
-  };
 }

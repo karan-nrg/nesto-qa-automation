@@ -1,6 +1,8 @@
-import type { AppLocale } from '../../config/locales';
+import { randomUUID } from 'node:crypto';
 
-/** Canadian province / territory codes used by the region select. */
+const VALID_PASSWORD = 'NestoQaTest123!';
+const TEST_PHONE_NUMBER = '6045550100';
+
 export type RegionCode =
   | 'AB'
   | 'BC'
@@ -19,79 +21,35 @@ export type RegionCode =
 export interface SignupData {
   firstName: string;
   lastName: string;
-  /** Throwaway unique email — never a personal address. */
   email: string;
-  /**
-   * National digits for the phone widget (no country code).
-   * After the intl-tel widget, the wire format is E.164 (e.g. +1604555xxxx).
-   */
-  phoneNational: string;
-  /** Expected E.164 value after the phone widget normalizes input. */
-  phoneE164: string;
+  phoneNumber: string;
   region: RegionCode;
   password: string;
   passwordConfirmation: string;
   leadDistributeConsentAgreement: boolean;
-  /** Maps to request `language` and response `preferredLanguage`. */
-  preferredLanguage: AppLocale;
 }
 
 export type SignupDataOverrides = Partial<SignupData>;
 
-const VALID_PASSWORD = 'NestoQaPass12!';
-
 /**
- * Unique throwaway identity for signup.
- * Email embeds timestamp + Playwright worker index so parallel runs do not collide.
- *
- * Call inside each test attempt (or a per-test fixture) — never as a module-level
- * shared const — so Playwright retries get a fresh identity. Building data does
- * not create an account; submitting a valid form does.
+ * Generates signup data with valid defaults.
+ * Allows overriding individual fields for negative test scenarios.
  */
 export function buildValidSignupData(
-  locale: AppLocale,
   overrides: SignupDataOverrides = {},
-  options?: { workerIndex?: number },
 ): SignupData {
-  const workerIndex = options?.workerIndex ?? 0;
-  const stamp = Date.now();
-  const phoneNational = uniquePhoneNational(stamp, workerIndex);
+  const password = overrides.password ?? VALID_PASSWORD;
 
   const base: SignupData = {
     firstName: 'Auto',
     lastName: 'Tester',
-    // example.com is rejected by the API ("placeholder email detected").
-    email: `nesto.qa+${stamp}.w${workerIndex}@mailinator.com`,
-    phoneNational,
-    phoneE164: `+1${phoneNational}`,
+    email: `kn-nesto-qa-${randomUUID()}@mailinator.com`,
+    phoneNumber: overrides.phoneNumber ?? TEST_PHONE_NUMBER,
     region: 'BC',
-    password: VALID_PASSWORD,
-    passwordConfirmation: VALID_PASSWORD,
+    password,
+    passwordConfirmation: password,
     leadDistributeConsentAgreement: false,
-    preferredLanguage: locale,
   };
 
   return { ...base, ...overrides };
-}
-
-/**
- * Build a Canadian 10-digit national number that is unique per run/worker.
- * Avoids well-known fictional 555 patterns that some widgets reject.
- */
-function uniquePhoneNational(stamp: number, workerIndex: number): string {
-  // Area code 604 (BC) + 7 digits derived from stamp/worker
-  const suffix = String((stamp + workerIndex * 17) % 10_000_000).padStart(
-    7,
-    '0',
-  );
-  return `604${suffix}`;
-}
-
-/** Convenience for negative cases — start from valid data and override fields. */
-export function buildSignupDataWithOverrides(
-  locale: AppLocale,
-  overrides: SignupDataOverrides,
-  options?: { workerIndex?: number },
-): SignupData {
-  return buildValidSignupData(locale, overrides, options);
 }

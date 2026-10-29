@@ -1,7 +1,7 @@
 # Dependencies
 node_modules/
 
-# Playwright artifacts (traces/reports may contain secrets)
+# Playwright artifacts
 /test-results/
 /playwright-report/
 /blob-report/
@@ -9,11 +9,11 @@ node_modules/
 /playwright/.auth/
 /traces/
 
-# Env / secrets — never commit
+# Environment files
 .env
 .env.*
 !.env.example
 
-# OS / editor
+# Local files
 .DS_Store
 *.log

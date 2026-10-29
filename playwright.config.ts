@@ -1,17 +1,17 @@
 import { defineConfig, devices } from '@playwright/test';
-import { BASE_URL, LOCALE_CONFIG } from './config/locales';
+import { BASE_URL, LOCALE_CONFIG, type AppLocale } from '@/config/locales';
 
 /**
- * Assessment projects: Chromium EN + FR only.
- * Firefox / WebKit can be added later as extra projects — not required now.
- *
- * Language is selected by application URL (signupPath), not Accept-Language alone.
+ * Two Chromium projects: English and French.
+ * Each project sets appLocale so tests know which language to use without
+ * parsing the project name. The signup URL picks the app language; Playwright's
+ * locale option only sets the browser language preference.
  */
-export default defineConfig({
+export default defineConfig<{ appLocale: AppLocale }>({
   testDir: './tests',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: 1,
+  retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
@@ -26,7 +26,7 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         locale: LOCALE_CONFIG.en.browserLocale,
-        // URL path is source of truth; baseURL + /signup
+        appLocale: 'en',
       },
     },
     {
@@ -34,7 +34,7 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         locale: LOCALE_CONFIG.fr.browserLocale,
-        // URL path is source of truth; baseURL + /fr/signup
+        appLocale: 'fr',
       },
     },
   ],

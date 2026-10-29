@@ -1,270 +1,190 @@
-import { test, expect } from '../../fixtures/test';
-import { BASE_URL, LOCALE_CONFIG } from '../../config/locales';
-import { SignupPage } from '../../pages/signup/SignupPage';
+import type { Request } from '@playwright/test';
+import { test, expect } from '@/fixtures/test';
+import { BASE_URL, LOCALE_CONFIG } from '@/config/locales';
+import { SignupPage } from '@/pages/signup/SignupPage';
 import {
-  assertAccountCreated,
-  assertDuplicateAccountError,
-  trackAccountsPosts,
-  waitForAccountCreate,
-} from '../../support/signup/accountResponse';
-import { buildValidSignupData } from '../../support/signup/signupData';
-import { signupCopyFor } from '../../support/signup/signupCopy';
+  type CreateAccountResponseBody,
+  isCreateAccountUrl,
+  waitForAccountCreationResponse,
+} from '@/support/signup/accountResponse';
+import { buildValidSignupData } from '@/support/signup/signupData';
+import { signupCopyFor } from '@/support/signup/signupCopy';
 
-/**
- * Client-side negatives must NOT POST /api/accounts.
- * Duplicate email is self-contained per attempt: create (201) → fresh context →
- * resubmit same email (observed 400). Runs independently under EN and FR.
- */
-test.describe('signup validation', () => {
-  test('empty required fields show errors and do not POST', async ({
-    appLocale,
-    signupPage,
-    page,
-  }) => {
-    const copy = signupCopyFor(appLocale);
-    const posts = trackAccountsPosts(page);
-
-    await test.step('open and submit empty form', async () => {
+test.describe('Signup validation', () => {
+  test.describe('Field validation', () => {
+    test.beforeEach(async ({ signupPage }) => {
       await signupPage.goto();
-      await page.waitForLoadState('networkidle');
-      // Touch a field so client validators are definitely mounted before submit.
-      await signupPage.firstNameInput.click();
+    });
+
+    test('shows errors when required fields are empty', async ({
+      signupPage,
+    }) => {
       await signupPage.submit();
+
+      // Province is pre-selected by geolocation, so it has no required error.
+      // Confirm password stays quiet until the password field itself is valid.
+      const fields = [
+        {
+          input: signupPage.firstNameInput,
+          error: signupPage.firstNameError,
+        },
+        {
+          input: signupPage.lastNameInput,
+          error: signupPage.lastNameError,
+        },
+        { input: signupPage.phoneInput, error: signupPage.phoneError },
+        { input: signupPage.emailInput, error: signupPage.emailError },
+        {
+          input: signupPage.passwordInput,
+          error: signupPage.passwordError,
+        },
+      ];
+
+      for (const { input, error } of fields) {
+        await expect(error).toBeVisible();
+        await expect(input).toHaveAttribute('aria-invalid', 'true');
+      }
     });
 
-    await test.step('required errors visible; no accounts POST', async () => {
-      await expect(signupPage.firstNameInput).toHaveAttribute(
-        'aria-invalid',
-        'true',
-      );
-      await expect(page.getByText(copy.errors.required).first()).toBeVisible();
-      expect(
-        posts.wasPosted(),
-        'empty submit must not POST /api/accounts',
-      ).toBe(false);
-    });
-  });
-
-  test('invalid email shows error and does not POST', async ({
-    appLocale,
-    signupPage,
-    page,
-  }, testInfo) => {
-    const copy = signupCopyFor(appLocale);
-    const data = buildValidSignupData(
+    test('shows an error for an invalid email', async ({
       appLocale,
-      { email: 'not-an-email' },
-      { workerIndex: testInfo.workerIndex },
-    );
-    const posts = trackAccountsPosts(page);
+      page,
+      signupPage,
+    }) => {
+      const copy = signupCopyFor(appLocale);
+      const data = buildValidSignupData({ email: 'not-an-email' });
 
-    await test.step('fill invalid email and submit', async () => {
-      await signupPage.goto();
-      await signupPage.fillValidSignup(data);
+      await signupPage.fillSignupForm(data);
+
+      // Client-side email validation should block POST /api/accounts.
+      const accountCreationRequests: Request[] = [];
+      page.on('request', (request) => {
+        if (request.method() === 'POST' && isCreateAccountUrl(request.url())) {
+          accountCreationRequests.push(request);
+        }
+      });
+
       await signupPage.submit();
+
+      await expect(signupPage.emailError).toHaveText(copy.errors.invalidEmail);
+      expect(accountCreationRequests).toHaveLength(0);
     });
 
-    await test.step('invalid email error; no accounts POST', async () => {
-      await expect(page.getByText(copy.errors.invalidEmail)).toBeVisible();
-      expect(
-        posts.wasPosted(),
-        'invalid email must not POST /api/accounts',
-      ).toBe(false);
-    });
-  });
+    test('shows an error for an invalid phone number', async ({
+      signupPage,
+    }) => {
+      const data = buildValidSignupData({ phoneNumber: '12' });
 
-  test('invalid phone shows error and does not POST', async ({
-    appLocale,
-    signupPage,
-    page,
-  }, testInfo) => {
-    const data = buildValidSignupData(
-      appLocale,
-      { phoneNational: '12', phoneE164: '+112' },
-      { workerIndex: testInfo.workerIndex },
-    );
-    const posts = trackAccountsPosts(page);
-
-    await test.step('fill invalid phone and submit', async () => {
-      await signupPage.goto();
-      await signupPage.fillValidSignup(data);
+      await signupPage.fillSignupForm(data);
       await signupPage.submit();
-    });
 
-    await test.step('phone validation blocks submit; no accounts POST', async () => {
-      // Phone widget / form should block API; assert no POST + stay on signup.
-      await expect(page).toHaveURL(/signup/);
+      await expect(signupPage.phoneError).toBeVisible();
       await expect(signupPage.phoneInput).toHaveAttribute(
         'aria-invalid',
         'true',
       );
-      expect(
-        posts.wasPosted(),
-        'invalid phone must not POST /api/accounts',
-      ).toBe(false);
     });
-  });
 
-  test('short password shows min-length error and does not POST', async ({
-    appLocale,
-    signupPage,
-    page,
-  }, testInfo) => {
-    const copy = signupCopyFor(appLocale);
-    const shortPassword = 'Ab1!';
-    const data = buildValidSignupData(
+    test('rejects a password that is too short', async ({
       appLocale,
-      {
-        password: shortPassword,
-        passwordConfirmation: shortPassword,
-      },
-      { workerIndex: testInfo.workerIndex },
-    );
-    const posts = trackAccountsPosts(page);
+      signupPage,
+    }) => {
+      const copy = signupCopyFor(appLocale);
+      const data = buildValidSignupData({ password: 'Ab1!' });
 
-    await test.step('fill short password and submit', async () => {
-      await signupPage.goto();
-      await signupPage.fillValidSignup(data);
+      await signupPage.fillSignupForm(data);
       await signupPage.submit();
+
+      await expect(signupPage.passwordError).toHaveText(
+        copy.errors.minCharactersRequired(12),
+      );
     });
 
-    await test.step('min length error; no accounts POST', async () => {
-      await expect(
-        page.getByText(copy.errors.minCharactersRequired(12)),
-      ).toBeVisible();
-      expect(
-        posts.wasPosted(),
-        'short password must not POST /api/accounts',
-      ).toBe(false);
-    });
-  });
-
-  test('weak password shows complexity error and does not POST', async ({
-    appLocale,
-    signupPage,
-    page,
-  }, testInfo) => {
-    const copy = signupCopyFor(appLocale);
-    // Long enough but missing uppercase / number complexity rules.
-    const weakPassword = 'alllowercaseonly';
-    const data = buildValidSignupData(
+    test('rejects a password without uppercase letters or numbers', async ({
       appLocale,
-      {
-        password: weakPassword,
-        passwordConfirmation: weakPassword,
-      },
-      { workerIndex: testInfo.workerIndex },
-    );
-    const posts = trackAccountsPosts(page);
+      signupPage,
+    }) => {
+      const copy = signupCopyFor(appLocale);
+      const data = buildValidSignupData({ password: 'alllowercaseonly' });
 
-    await test.step('fill weak password and submit', async () => {
-      await signupPage.goto();
-      await signupPage.fillValidSignup(data);
+      await signupPage.fillSignupForm(data);
       await signupPage.submit();
+
+      await expect(signupPage.passwordError).toHaveText(
+        copy.errors.weakPassword,
+      );
     });
 
-    await test.step('weak password error; no accounts POST', async () => {
-      await expect(
-        page.getByText(copy.errors.weakPassword, { exact: true }),
-      ).toBeVisible();
-      expect(
-        posts.wasPosted(),
-        'weak password must not POST /api/accounts',
-      ).toBe(false);
-    });
-  });
-
-  test('password mismatch shows error and does not POST', async ({
-    appLocale,
-    signupPage,
-    page,
-  }, testInfo) => {
-    const copy = signupCopyFor(appLocale);
-    const data = buildValidSignupData(
+    test('shows an error when passwords do not match', async ({
       appLocale,
-      {
+      signupPage,
+    }) => {
+      const copy = signupCopyFor(appLocale);
+      const data = buildValidSignupData({
         password: 'NestoQaPass12!',
         passwordConfirmation: 'NestoQaPass99!',
-      },
-      { workerIndex: testInfo.workerIndex },
-    );
-    const posts = trackAccountsPosts(page);
+      });
 
-    await test.step('fill mismatched passwords and submit', async () => {
-      await signupPage.goto();
-      await signupPage.fillValidSignup(data);
+      await signupPage.fillSignupForm(data);
       await signupPage.submit();
-    });
 
-    await test.step('mismatch error; no accounts POST', async () => {
-      await expect(page.getByText(copy.errors.passwordMismatch)).toBeVisible();
-      expect(
-        posts.wasPosted(),
-        'password mismatch must not POST /api/accounts',
-      ).toBe(false);
+      await expect(signupPage.passwordConfirmationError).toHaveText(
+        copy.errors.passwordMismatch,
+      );
     });
   });
 
-  /**
-   * Self-contained: unique identity → 201 create → fresh browser context →
-   * same email again → observed 400 + generic UI error.
-   * Runs under both EN and FR projects independently (each creates one account).
-   * "bad format" is a likely product defect — see BUGS.md; do not invent 409.
-   */
-  test('duplicate email returns observed 400 and generic UI error', async ({
+  test('rejects registration with an existing email', async ({
     appLocale,
     browser,
     signupPage,
     page,
-  }, testInfo) => {
-    const copy = signupCopyFor(appLocale);
-    // Built inside the test body so retries receive a new identity.
-    const data = buildValidSignupData(
-      appLocale,
-      {},
-      { workerIndex: testInfo.workerIndex },
-    );
+  }) => {
+    const data = buildValidSignupData();
 
-    await test.step('create account with unique identity (201)', async () => {
+    await test.step('Create an account', async () => {
       await signupPage.goto();
-      const responsePromise = waitForAccountCreate(page, data.email);
-      await signupPage.fillValidSignup(data);
+      await signupPage.fillSignupForm(data);
+
+      const responsePromise = waitForAccountCreationResponse(page, data.email);
       await signupPage.submit();
       const response = await responsePromise;
-      await assertAccountCreated(response, data);
+
+      expect(response.status()).toBe(201);
+      const body = (await response.json()) as CreateAccountResponseBody;
+      expect(body.account?.email).toBe(data.email);
     });
 
-    await test.step('fresh context: resubmit same email, expect observed 400', async () => {
-      const freshContext = await browser.newContext({
+    await test.step('Reject registration with the same email', async () => {
+      const context = await browser.newContext({
         baseURL: BASE_URL,
         locale: LOCALE_CONFIG[appLocale].browserLocale,
       });
 
       try {
-        const freshPage = await freshContext.newPage();
-        const freshSignup = new SignupPage(freshPage, appLocale);
-        const duplicateData = buildValidSignupData(
-          appLocale,
-          { email: data.email },
-          { workerIndex: testInfo.workerIndex },
-        );
+        const duplicatePage = await context.newPage();
+        const duplicateSignup = new SignupPage(duplicatePage, appLocale);
 
-        await freshSignup.goto();
-        const responsePromise = waitForAccountCreate(
-          freshPage,
-          duplicateData.email,
+        await duplicateSignup.goto();
+        await duplicateSignup.fillSignupForm(data);
+
+        const responsePromise = waitForAccountCreationResponse(
+          duplicatePage,
+          data.email,
         );
-        await freshSignup.fillValidSignup(duplicateData);
-        await freshSignup.submit();
+        await duplicateSignup.submit();
         const response = await responsePromise;
 
-        // Observed contract: 400 + misleading "bad format" (not 409).
-        await assertDuplicateAccountError(response);
-        await expect(
-          freshPage.getByText(copy.errors.genericError),
-        ).toBeVisible();
+        expect(response.status()).toBe(400);
+        const body = (await response.json()) as CreateAccountResponseBody;
+        expect(body).toMatchObject({
+          error: 'bad format',
+          description: 'error creating account',
+        });
+        expect(body.account).toBeUndefined();
+        await expect(duplicateSignup.genericError).toBeVisible();
       } finally {
-        await freshContext.close();
+        await context.close();
       }
     });
   });

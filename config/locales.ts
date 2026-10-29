@@ -1,17 +1,20 @@
 /**
- * App language is selected by URL path, not Accept-Language alone.
- * Playwright `locale` is set as a secondary browser hint only.
+ * The signup flow picks the locale via the signup URL (/signup vs /fr/signup).
+ * Playwright `locale` only sets the browser language preference, and it does
+ * not switch the app language.
  */
 export type AppLocale = 'en' | 'fr';
 
 export interface LocaleConfig {
-  /** Playwright project name */
+  /** Name shown in Playwright reports (e.g. chromium-en) */
   projectName: string;
-  /** Application locale encoded in the signup URL */
+  /** App language this config represents */
   locale: AppLocale;
-  /** Path appended to baseURL */
+  /** Signup path for this language (/signup or /fr/signup) */
   signupPath: string;
-  /** Secondary browser locale hint */
+  /** Post-signup get-a-quote path (/getaquote or /getaquote/fr) */
+  getAQuotePath: string;
+  /** Browser language preference (e.g. en-CA / fr-CA) */
   browserLocale: string;
 }
 
@@ -22,24 +25,14 @@ export const LOCALE_CONFIG: Record<AppLocale, LocaleConfig> = {
     projectName: 'chromium-en',
     locale: 'en',
     signupPath: '/signup',
+    getAQuotePath: '/getaquote',
     browserLocale: 'en-CA',
   },
   fr: {
     projectName: 'chromium-fr',
     locale: 'fr',
     signupPath: '/fr/signup',
+    getAQuotePath: '/getaquote/fr',
     browserLocale: 'fr-CA',
   },
 };
-
-export function localeFromProjectName(projectName: string): AppLocale {
-  if (projectName === LOCALE_CONFIG.fr.projectName) {
-    return 'fr';
-  }
-  if (projectName === LOCALE_CONFIG.en.projectName) {
-    return 'en';
-  }
-  throw new Error(
-    `Unknown Playwright project "${projectName}". Expected chromium-en or chromium-fr.`,
-  );
-}

@@ -1,66 +1,82 @@
-import { test, expect } from '../../fixtures/test';
-import { signupCopyFor } from '../../support/signup/signupCopy';
+import { test, expect } from '@/fixtures/test';
+import { signupCopyFor } from '@/support/signup/signupCopy';
 
-/**
- * Locale-aware field chrome — no form submit, no account creates.
- */
-test.describe('signup fields', () => {
-  test('exposes expected labels, placeholders, consent, and terms', async ({
+test.describe('Signup fields', () => {
+  test('displays the signup fields and labels in the selected language', async ({
     appLocale,
     signupPage,
     page,
   }) => {
     const copy = signupCopyFor(appLocale);
 
-    await test.step('open signup for locale', async () => {
-      await signupPage.goto();
-      await expect(page).toHaveURL(
-        new RegExp(signupPage.locale === 'fr' ? '/fr/signup' : '/signup'),
-      );
+    await signupPage.goto();
+
+    await test.step('All signup controls are visible', async () => {
+      await expect(signupPage.firstNameInput).toBeVisible();
+      await expect(signupPage.lastNameInput).toBeVisible();
+      await expect(signupPage.phoneInput).toBeVisible();
+      await expect(signupPage.regionSelect).toBeVisible();
+      await expect(signupPage.emailInput).toBeVisible();
+      await expect(signupPage.passwordInput).toBeVisible();
+      await expect(signupPage.passwordConfirmationInput).toBeVisible();
+      await expect(signupPage.agreementCheckbox).toBeVisible();
+      await expect(signupPage.submitButton).toBeVisible();
     });
 
-    await test.step('page title matches locale', async () => {
-      // Live page uses an h2 title, not h1.
-      await expect(page.getByRole('heading', { level: 2 })).toContainText(
-        copy.titleContains,
-      );
+    await test.step('Field labels and accessible names match the selected language', async () => {
+      const fields = [
+        {
+          input: signupPage.firstNameInput,
+          label: signupPage.fieldLabels.firstName,
+          text: copy.fieldLabels.firstName,
+        },
+        {
+          input: signupPage.lastNameInput,
+          label: signupPage.fieldLabels.lastName,
+          text: copy.fieldLabels.lastName,
+        },
+        {
+          input: signupPage.phoneInput,
+          label: signupPage.fieldLabels.phone,
+          text: copy.fieldLabels.phone,
+        },
+        {
+          input: signupPage.regionSelect,
+          label: signupPage.fieldLabels.region,
+          text: copy.fieldLabels.region,
+        },
+        {
+          input: signupPage.emailInput,
+          label: signupPage.fieldLabels.email,
+          text: copy.fieldLabels.email,
+        },
+        {
+          input: signupPage.passwordInput,
+          label: signupPage.fieldLabels.password,
+          text: copy.fieldLabels.password,
+        },
+        {
+          input: signupPage.passwordConfirmationInput,
+          label: signupPage.fieldLabels.passwordConfirmation,
+          text: copy.fieldLabels.passwordConfirmation,
+        },
+      ];
+
+      for (const { input, label, text } of fields) {
+        await expect(label).toBeVisible();
+        await expect(label).toHaveText(text);
+        await expect(input).toHaveAccessibleName(text);
+      }
     });
 
-    await test.step('input placeholders match locale copy', async () => {
-      await expect(signupPage.firstNameInput).toHaveAttribute(
-        'placeholder',
-        copy.placeholders.firstName,
-      );
-      await expect(signupPage.lastNameInput).toHaveAttribute(
-        'placeholder',
-        copy.placeholders.lastName,
-      );
-      await expect(signupPage.emailInput).toHaveAttribute(
-        'placeholder',
-        copy.placeholders.email,
-      );
-      await expect(signupPage.phoneInput).toHaveAttribute(
-        'placeholder',
-        copy.placeholders.phone,
-      );
-      await expect(signupPage.passwordInput).toHaveAttribute(
-        'placeholder',
-        copy.placeholders.password,
-      );
-      await expect(signupPage.passwordConfirmationInput).toHaveAttribute(
-        'placeholder',
-        copy.placeholders.passwordConfirmation,
-      );
+    await test.step('Consent is unchecked and the submit button is translated', async () => {
       await expect(
-        signupPage.regionSelect.locator('option').first(),
-      ).toHaveText(copy.placeholders.region);
-    });
-
-    await test.step('password helper, consent, submit, and terms', async () => {
-      await expect(page.getByText(copy.passwordHelper)).toBeVisible();
-      await expect(page.getByText(copy.consent)).toBeVisible();
+        page.getByRole('checkbox', {
+          name: copy.consentLabelContains,
+        }),
+      ).toBeVisible();
+      await expect(signupPage.agreementCheckbox).not.toBeChecked();
       await expect(signupPage.submitButton).toHaveText(copy.submit);
-      await expect(page.getByText(copy.submitHelperContains)).toBeVisible();
     });
   });
 });

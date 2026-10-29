@@ -20,15 +20,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-      - run: npm ci
-      - run: npm run format:check
-      - run: npm run lint
-      - run: npm run typecheck
+          cache: yarn
+      - run: yarn install --frozen-lockfile
+      - run: yarn format:check
+      - run: yarn lint
+      - run: yarn typecheck
 
+  # Runs only when you click "Run workflow" and leave run_e2e checked.
+  # Skipped on push/PR so we don't create QA accounts from every commit.
+  # Reports and traces stay on the runner (they can hold tokens/passwords)
+  # and are never uploaded as artifacts.
   e2e:
-    name: Live E2E (english and french)
-    if: github.event_name == 'workflow_dispatch'
+    name: Sign Up E2E (english and french)
+    if: github.event_name == 'workflow_dispatch' && inputs.run_e2e
     runs-on: ubuntu-latest
     needs: static
     steps:
@@ -36,16 +40,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-      - run: npm ci
+          cache: yarn
+      - run: yarn install --frozen-lockfile
       - name: Install Chromium only
-        run: npx playwright install --with-deps chromium
+        run: yarn playwright install --with-deps chromium
       - name: Run EN + FR projects
-        run: npx playwright test --project=chromium-en --project=chromium-fr
-      - name: Upload report
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 3
+        run: yarn playwright test --project=chromium-en --project=chromium-fr

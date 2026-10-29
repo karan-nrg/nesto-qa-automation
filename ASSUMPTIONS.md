@@ -1,37 +1,28 @@
-# Assumptions
+# Assumptions and Trade-offs
 
-Documented decisions for the nesto signup Playwright suite (`app.qa.nesto.ca`).
+## Test Coverage
 
-## Browsers and projects
+- The suite runs in Chromium, with the same tests executed in English and French. The signup URL determines the language (`/signup` or `/fr/signup`).
+- For this exercise, I've included field, label, and accessible-name checks in Playwright. In a production environment, I'd typically cover more detailed validation, accessibility, and localization at the component level, while keeping E2E tests focused on critical user journeys.
+- I've used the application's existing `data-testid` attributes for form interactions, while checking visible labels and accessible names separately.
+- For negative scenarios, I've focused on validation behaviour rather than asserting exact error messages everywhere. I've kept exact wording for selected cases where it helps verify a specific validation rule. The invalid-email test also checks that no account-creation request was observed when the validation error appeared.
+- I've kept the scope focused on signup and validation. Login navigation, the language toggle, and Terms/Privacy links are not covered separately.
 
-- Assessment runs **Chromium only** via projects `chromium-en` and `chromium-fr`.
-- Firefox / WebKit are **not** configured as mandatory; they can be added later as extra Playwright projects.
+## Test Data
 
-## Locale / language
+- I've kept the test data simple, with fixed valid defaults and a unique email for each registration. Negative tests can override individual fields as needed. I'd consider Faker if more varied test data were required.
+- The tests assume that the same phone number can be reused across accounts, since email is treated as the unique identifier.
+- The assignment doesn't provide an account cleanup API, so test accounts remain in the QA environment. In a larger framework, I'd use APIs for test data setup and cleanup where available, reducing unnecessary UI interactions and keeping tests independent.
 
-- The **full shared suite** runs under both EN and FR projects.
-- **URL selects language** (`/signup` vs `/fr/signup`). Playwright `locale` is a secondary browser hint only — not the source of truth.
-- Request sends `language`; response echoes **`preferredLanguage`**. Mapping is based on observed behaviour and verified before assertions are finalized.
+## Observed Application Behaviour
 
-## Account lifecycle and isolation
+- Field validation errors appear when the user attempts to submit an invalid form, so the negative tests submit the form before checking the relevant error messages.
+- Successful signup returns `201`, with the submitted account details in the response. The phone number includes the `+1` country code, and the response includes the selected language and consent value.
+- After signup, English users are redirected to `/getaquote` and French users to `/getaquote/fr`. The French locale appears in a different position than on the signup URL (`/fr/signup`).
+- The province is automatically selected based on geolocation, so I haven't included a required-field check for it in the empty-form test.
+- Registering with an existing email returns `400` with a `bad format` error. I've kept the test aligned with this behaviour and documented the potentially misleading response in [BUGS.md](./BUGS.md).
 
-- **No account teardown API** was observed. Throwaway emails only; no personal addresses.
-- Unique signup identities are generated **inside each test attempt** (not at module init or shared suite setup) so retries get a fresh email.
-- Tests are independent: fresh browser state, no cross-test data stores or ordering dependencies.
-- Duplicate-email coverage is **self-contained** within a single test (create → fresh context → resubmit same email) and runs under both EN and FR.
-- Success contract: `POST /api/accounts` → **201** with `{ account, token }`.
-- Phone on the wire is **E.164** (e.g. `+1604…`) after the phone widget — observed normalization verified before assertions.
-- Password is submitted but **must not** appear in the response; tokens are returned — **never log** passwords or tokens.
-- Traces / HTML reports may contain secrets → gitignored; do not publish sensitive artifacts publicly.
-- Synthetic accounts persist in QA; cleanup would require a supported deletion contract from the application team.
+## Execution
 
-## Duplicate email (observed)
-
-- Duplicate signup still calls `POST /api/accounts`.
-- Observed: **400** + `{ "error": "bad format", "description": "error creating account" }`.
-- Likely product defect (misleading message; 409-style conflict would be clearer). Tests assert **observed** behavior, not an invented 409.
-
-## Tooling
-
-- `retries: 1`; `trace: on-first-retry`; `screenshot: only-on-failure`; `video: off`.
-- Live E2E in CI is **workflow_dispatch only** (creates synthetic QA accounts; no create cap).
+- The CI workflow is triggered manually to avoid creating unnecessary QA accounts.
+- Playwright traces may contain credentials or authentication tokens. Generated reports and traces are excluded from Git and aren't uploaded as CI artifacts.
